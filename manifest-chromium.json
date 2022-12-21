@@ -35,18 +35,9 @@
 	},
 
 	"commands": {
-		"open-popup-general": {
-			"suggested_key": { "default": "Alt+Space" },
-			"description": "Open the global command input [general]"
-		},
-		"open-popup-alpha": {
-			"description": "Open the global command input [alpha]"
-		},
-		"open-popup-beta": {
-			"description": "Open the global command input [beta]"
-		},
-		"open-popup-gamma": {
-			"description": "Open the global command input [gamma]"
+		"open-popup": {
+			"suggested_key": { "default": "Alt+Shift+Space" },
+			"description": "Open the action input"
 		}
 	}
 }
