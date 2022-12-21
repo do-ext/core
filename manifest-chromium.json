@@ -1,0 +1,52 @@
+{
+	"manifest_version": 3,
+	"name": "doExt Core",
+	"description": "Run common actions quickly",
+	"version": "0.0.0",
+
+	"icons": {
+		"48": "/icons/core.svg",
+		"96": "/icons/core.svg"
+	},
+
+	"permissions": [
+		"scripting",
+		"tabs",
+		"tabGroups",
+		"storage",
+		"search",
+		"contextMenus"
+	],
+
+	"optional_permissions": [],
+
+	"host_permissions": [
+		"*://*/*"
+	],
+
+	"background": {
+		"service_worker": "/dist/background.js"
+	},
+
+	"action": {
+		"default_icon": "/icons/core.svg",
+		"default_title": "doExt Core",
+		"default_popup": "/pages/popup.html"
+	},
+
+	"commands": {
+		"open-popup-general": {
+			"suggested_key": { "default": "Alt+Space" },
+			"description": "Open the global command input [general]"
+		},
+		"open-popup-alpha": {
+			"description": "Open the global command input [alpha]"
+		},
+		"open-popup-beta": {
+			"description": "Open the global command input [beta]"
+		},
+		"open-popup-gamma": {
+			"description": "Open the global command input [gamma]"
+		}
+	}
+}
