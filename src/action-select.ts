@@ -73,7 +73,7 @@ const entrySubmit = (entry?: Element) => {
 	if (!entry) {
 		return;
 	}
-	const key = (entry.querySelector(".label") as Element).textContent ?? "";
+	const key = (entry.querySelector(".label.key") as Element).textContent ?? "";
 	chrome.runtime.sendMessage({
 		type: "invocation",
 		command: "",
