@@ -23,8 +23,8 @@
 	"devDependencies": {
 		"@types/chrome": "^0.0.204",
 		"@types/firefox-webext-browser": "^94.0.1",
-		"@typescript-eslint/eslint-plugin": "^5.46.1",
-		"@typescript-eslint/parser": "^5.46.1",
+		"@typescript-eslint/eslint-plugin": "^5.47.0",
+		"@typescript-eslint/parser": "^5.47.0",
 		"eslint": "^8.30.0",
 		"jq": "^1.7.2",
 		"typescript": "^4.9.4",
