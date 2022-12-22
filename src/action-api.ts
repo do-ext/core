@@ -2,7 +2,8 @@ type APIAction = {
 	name: string
 	nameShort?: string
 	actions: Record<string, APIAction>
-	call?: (command: string, ...args: Array<string>) => Promise<void>
+	params?: Record<string, string>
+	call?: (args: Record<string, string>, command: string) => Promise<void>
 }
 
 type APIQuery = {
@@ -68,11 +69,12 @@ const api: APIAction = {
 							name: "highlight a relative tab",
 							nameShort: "highlight tab",
 							actions: {},
-							call: async (command, shift) => {
+							params: { shift: "number" },
+							call: async (args, command) => {
 								const tabs = await getTabsInWindow();
 								const tabSelected = tabs.find(tab => !tab.active && tab.highlighted);
 								const tabActiveIndex = tabs.findIndex(tab => tab.active);
-								const tabIndex = getTabIndex(tabActiveIndex, evaluateExpression(shift, command.length), tabs.length);
+								const tabIndex = getTabIndex(tabActiveIndex, evaluateExpression(args.shift, command.length), tabs.length);
 								if (this.browser) {
 									const highlighting = chrome.tabs.update(tabs[tabIndex].id as number, { highlighted: true, active: false });
 									if (tabSelected) {
@@ -109,10 +111,11 @@ const api: APIAction = {
 							name: "activate a relative tab",
 							nameShort: "go to tab",
 							actions: {},
-							call: async (command, shift) => {
+							params: { shift: "number" },
+							call: async (args, command) => {
 								const tabs = await getTabsInWindow();
 								const tabActiveIndex = tabs.findIndex(tab => tab.active);
-								const tabIndex = getTabIndex(tabActiveIndex, evaluateExpression(shift, command.length), tabs.length);
+								const tabIndex = getTabIndex(tabActiveIndex, evaluateExpression(args.shift, command.length), tabs.length);
 								await chrome.tabs.update(tabs[tabIndex].id as number, { active: true });
 							},
 						},
@@ -165,13 +168,13 @@ const getApiAction = (key: string, apiAction: APIAction = api): APIAction | unde
 		: apiAction.actions[key]
 ;
 
-const call = (key: string, command: string, ...args: Array<string>) => {
+const call = (key: string, args: Record<string, string>, command: string) => {
 	const apiAction = getApiAction(key);
 	if (!apiAction || !apiAction.call) {
 		console.warn(command, apiAction);
 		return;
 	}
-	apiAction.call(command, ...args);
+	apiAction.call(args, command);
 };
 
 const query = (apiAction: APIAction = api, apiQuery: APIQuery = {
@@ -195,7 +198,17 @@ const query = (apiAction: APIAction = api, apiQuery: APIQuery = {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	switch (message.type) {
 	case "invocation": {
-		call(message.key, message.command, message.args);
+		const action = getApiAction(message.key);
+		if (action && action.params && !Object.keys(action.params).every(param => message.args[param])) {
+			sendResponse({
+				context: {
+					paramInfo: Object.entries(action.params).find(([ param ]) => !message.args[param]),
+				},
+			});
+			return;
+		}
+		call(message.key, message.args, message.command);
+		sendResponse({});
 		break;
 	} case "query": {
 		sendResponse(query());

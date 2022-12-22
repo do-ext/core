@@ -43,13 +43,15 @@ const toSentenceCase = (name: string) =>
 	name[0].toUpperCase() + name.slice(1)
 ;
 
-const entryCreate = (key: string, apiQuery: APIQuery) => {
-	const apiQueryAction = getApiQueryAction(key, apiQuery);
+const entryCreate = (key: string, text: string, apiQuery?: APIQuery) => {
+	const apiQueryAction = apiQuery ? getApiQueryAction(key, apiQuery) : undefined;
 	const panel = document.createElement("div");
 	panel.classList.add("entry");
 	const labelName = document.createElement("div");
 	labelName.classList.add("label", "name");
-	labelName.textContent = apiQueryAction ? toSentenceCase(apiQueryAction.nameShort ?? apiQueryAction.name) : "error";
+	labelName.textContent = apiQueryAction
+		? toSentenceCase(apiQueryAction.nameShort ?? apiQueryAction.name)
+		: (text.length ? text : "error");
 	panel.appendChild(labelName);
 	const labelKey = document.createElement("div");
 	labelKey.classList.add("label", "key");
@@ -65,6 +67,10 @@ const entrySelect = (entry: Element) => {
 	entry.classList.add("selected");
 };
 
+let entrySubmitContextArgs: Record<string, string> = {};
+let entrySubmitContextParam = "";
+let entrySubmitContextKey = "";
+
 const entrySubmit = (entry?: Element) => {
 	if (entry) {
 		entrySelect(entry);
@@ -73,12 +79,40 @@ const entrySubmit = (entry?: Element) => {
 	if (!entry) {
 		return;
 	}
-	const key = (entry.querySelector(".label.key") as Element).textContent ?? "";
+	let key = (entry.querySelector(".label.key") as Element).textContent ?? "";
+	const name = (entry.querySelector(".label.name") as Element).textContent ?? "";
+	if (entrySubmitContextParam.length) {
+		key = entrySubmitContextKey;
+		entrySubmitContextArgs[entrySubmitContextParam] = name;
+		entrySubmitContextParam = "";
+		entrySubmitContextKey = "";
+	} else {
+		entrySubmitContextArgs = {};
+		entrySubmitContextKey = key;
+	}
 	chrome.runtime.sendMessage({
 		type: "invocation",
 		command: "",
 		key,
-		args: [],
+		args: entrySubmitContextArgs,
+	}, response => {
+		if (!response.context) {
+			close();
+			return;
+		}
+		const [ param, type ] = response.context.paramInfo as [ string, string ];
+		const list = document.querySelector("#action-select-panel .list") as Element;
+		list.replaceChildren();
+		if (type === "number") {
+			Array(32).fill(0).forEach((value, i) => {
+				list.appendChild(entryCreate("", i.toString()));
+			});
+		}
+		const input = document.querySelector("#action-select-panel input") as HTMLInputElement;
+		input.value = "";
+		listFilterEnd();
+		listSelectNth(0);
+		entrySubmitContextParam = param;
 	});
 };
 
@@ -108,6 +142,9 @@ const listFilter = (predicate: (details: FilterDetails) => boolean) => {
 			entry.classList.add("filtered");
 		});
 	listSelectNth(0);
+	if (listGetEntriesFiltered().length === 1) {
+		entrySubmit();
+	}
 };
 
 const listGetEntriesFiltered = () =>
@@ -197,7 +234,7 @@ const panelInsert = (container: HTMLElement) => {
 		}
 		list.replaceChildren();
 		getApiQueryKeys(apiQuery).forEach(key => {
-			list.appendChild(entryCreate(key, apiQuery));
+			list.appendChild(entryCreate(key, "", apiQuery));
 		});
 		listSelectNth(0);
 	});
