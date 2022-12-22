@@ -1,19 +1,22 @@
 const styleInsert = () => {
 	const style = document.createElement("style");
 	style.textContent = `
-.action-select-panel {
+#action-select-panel {
 	background: hsl(0 0% 80%);
 	user-select: none;
 }
-* {
+#action-select-panel * {
 	font-family: calibri;
 	font-size: 20px;
 }
-.entry {
+#action-select-panel .entry {
 	padding: 4px;
 }
-.entry.selected {
-	background: hsl(0 0% 100%);
+#action-select-panel .entry.selected {
+	background: hsl(0 0% 90%);
+}
+#action-select-panel .list.filter .entry:not(.filtered) {
+	display: none;
 }
 	`;
 	document.head.appendChild(style);
@@ -36,7 +39,7 @@ const entryCreate = (key: string) => {
 };
 
 const entrySelect = (entry: Element) => {
-	actionselectPanel.querySelectorAll(".entry.selected").forEach(entry => {
+	document.querySelectorAll("#action-select-panel .entry.selected").forEach(entry => {
 		entry.classList.remove("selected");
 	});
 	entry.classList.add("selected");
@@ -46,7 +49,7 @@ const entrySubmit = (entry?: Element) => {
 	if (entry) {
 		entrySelect(entry);
 	}
-	entry = actionselectPanel.querySelector(".entry.selected") ?? undefined;
+	entry = document.querySelector("#action-select-panel .entry.selected") ?? undefined;
 	if (!entry) {
 		return;
 	}
@@ -59,9 +62,61 @@ const entrySubmit = (entry?: Element) => {
 	});
 };
 
+const listFilterStart = () => {
+	listFilterEnd();
+	const list = document.querySelector("#action-select-panel .list") as Element;
+	list.classList.add("filter");
+};
+
+const listFilterEnd = () => {
+	const list = document.querySelector("#action-select-panel .list") as Element;
+	list.classList.remove("filter");
+	list.querySelectorAll(".entry.filtered").forEach(entry => {
+		entry.classList.remove("filtered");
+	});
+};
+
+const listFilter = (predicate: (key: string) => boolean) => {
+	listFilterStart();
+	const list = document.querySelector("#action-select-panel .list") as Element;
+	Array.from(list.querySelectorAll(".entry"))
+		.filter(entry => predicate((entry.querySelector(".label") as Element).textContent ?? ""))
+		.forEach(entry => {
+			entry.classList.add("filtered");
+		});
+	listSelectNth(0);
+};
+
+const listGetEntriesFiltered = () =>
+	Array.from(document.querySelectorAll("#action-select-panel .list.filter .entry.filtered, .list:not(.filter) .entry"))
+;
+
+const listEntriesDeselect = () =>
+	document.querySelectorAll("#action-select-panel .list .entry.selected").forEach(entry => {
+		entry.classList.remove("selected");
+	})
+;
+
+const listSelectNth = (index: number) => {
+	listEntriesDeselect();
+	const entries = listGetEntriesFiltered();
+	const entry = entries[(entries.length + index) % entries.length] as Element;
+	entry.classList.add("selected");
+};
+
+const listGetEntryIndex = (criteria: {
+	entry?: Element
+	selected?: boolean
+}) => {
+	const list = document.querySelector("#action-select-panel .list") as Element;
+	const entry = criteria.entry ?? (criteria.selected !== undefined ? list.querySelector(".entry.selected") : null);
+	const entries = listGetEntriesFiltered();
+	return entry ? entries.indexOf(entry) : -1;
+};
+
 const panelInsert = (container: HTMLElement) => {
 	const panel = document.createElement("div");
-	panel.classList.add("action-select-panel");
+	panel.id = "action-select-panel";
 	container.appendChild(panel);
 	const list = document.createElement("div");
 	list.classList.add("list");
@@ -71,10 +126,10 @@ const panelInsert = (container: HTMLElement) => {
 		switch (event.key) {
 		case "ArrowDown":
 		case "ArrowUp": {
-			const entrySelectedIdx = Array.from(list.children).findIndex(child => child.classList.contains("selected"));
-			(list.children.item(entrySelectedIdx) as Element).classList.remove("selected");
-			const entrySelectedNewIdx = (list.childElementCount + entrySelectedIdx + (event.key === "ArrowDown" ? 1 : -1)) % list.childElementCount;
-			(list.children.item(entrySelectedNewIdx) as Element).classList.add("selected");
+			const entrySelectedIdx = listGetEntryIndex({ selected: true });
+			const entriesCount = listGetEntriesFiltered().length;
+			listEntriesDeselect();
+			listSelectNth((entriesCount + entrySelectedIdx + (event.key === "ArrowDown" ? 1 : -1)) % entriesCount);
 			break;
 		} case "Enter": {
 			const entrySelected = Array.from(list.children).find(child => child.classList.contains("selected"));
@@ -90,8 +145,16 @@ const panelInsert = (container: HTMLElement) => {
 		}}
 		event.preventDefault();
 	});
+	input.addEventListener("input", () => {
+		const inputText = input.value;
+		if (!inputText.length) {
+			listFilterEnd();
+			return;
+		}
+		listFilter(key => inputText.split(" ").every(text => key.includes(text)));
+	});
 	addEventListener("mousedown", event => {
-		if (!(actionselectPanel.querySelector(".list") as Element).contains(event.target as Element | null) ) {
+		if (!(document.querySelector("#action-select-panel .list") as Element).contains(event.target as Element | null) ) {
 			return;
 		}
 		const entry = (event.target as Element).closest(".entry") as Element;
@@ -111,10 +174,10 @@ const panelInsert = (container: HTMLElement) => {
 		getApiQueryKeys(apiQuery).forEach(key => {
 			list.appendChild(entryCreate(key));
 		});
-		list.firstElementChild?.classList.add("selected");
+		listSelectNth(0);
 	});
 	return panel;
 };
 
 styleInsert();
-const actionselectPanel = panelInsert(document.body);
+panelInsert(document.body);
