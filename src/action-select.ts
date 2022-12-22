@@ -1,7 +1,7 @@
-const popupStyleInsert = () => {
+const styleInsert = () => {
 	const style = document.createElement("style");
 	style.textContent = `
-#action-select-panel {
+.action-select-panel {
 	background: hsl(0 0% 80%);
 	user-select: none;
 }
@@ -25,7 +25,7 @@ const getApiQueryKeys = (apiQuery: APIQuery, key = ""): Array<string> =>
 	)
 ;
 
-const popupEntryCreate = (key: string) => {
+const entryCreate = (key: string) => {
 	const panel = document.createElement("div");
 	panel.classList.add("entry");
 	const label = document.createElement("div");
@@ -35,9 +35,33 @@ const popupEntryCreate = (key: string) => {
 	return panel;
 };
 
-const popupPanelInsert = (container: HTMLElement) => {
+const entrySelect = (entry: Element) => {
+	actionselectPanel.querySelectorAll(".entry.selected").forEach(entry => {
+		entry.classList.remove("selected");
+	});
+	entry.classList.add("selected");
+};
+
+const entrySubmit = (entry?: Element) => {
+	if (entry) {
+		entrySelect(entry);
+	}
+	entry = actionselectPanel.querySelector(".entry.selected") ?? undefined;
+	if (!entry) {
+		return;
+	}
+	const key = (entry.querySelector(".label") as Element).textContent ?? "";
+	chrome.runtime.sendMessage({
+		type: "invocation",
+		command: "",
+		key,
+		args: [],
+	});
+};
+
+const panelInsert = (container: HTMLElement) => {
 	const panel = document.createElement("div");
-	panel.id = "action-select-panel";
+	panel.classList.add("action-select-panel");
 	container.appendChild(panel);
 	const list = document.createElement("div");
 	list.classList.add("list");
@@ -47,24 +71,17 @@ const popupPanelInsert = (container: HTMLElement) => {
 		switch (event.key) {
 		case "ArrowDown":
 		case "ArrowUp": {
-			const childSelectedIdx = Array.from(list.children).findIndex(child => child.classList.contains("selected"));
-			(list.children.item(childSelectedIdx) as Element).classList.remove("selected");
-			const childSelectedNewIdx = (list.childElementCount + childSelectedIdx + (event.key === "ArrowDown" ? 1 : -1)) % list.childElementCount;
-			(list.children.item(childSelectedNewIdx) as Element).classList.add("selected");
+			const entrySelectedIdx = Array.from(list.children).findIndex(child => child.classList.contains("selected"));
+			(list.children.item(entrySelectedIdx) as Element).classList.remove("selected");
+			const entrySelectedNewIdx = (list.childElementCount + entrySelectedIdx + (event.key === "ArrowDown" ? 1 : -1)) % list.childElementCount;
+			(list.children.item(entrySelectedNewIdx) as Element).classList.add("selected");
 			break;
 		} case "Enter": {
-			const childSelected = Array.from(list.children).find(child => child.classList.contains("selected"));
-			if (!childSelected) {
+			const entrySelected = Array.from(list.children).find(child => child.classList.contains("selected"));
+			if (!entrySelected) {
 				break;
 			}
-			const key = (childSelected.querySelector(".label") as Element).textContent ?? "";
-			chrome.runtime.sendMessage({
-				type: "invocation",
-				command: "",
-				key,
-				args: [],
-			});
-			close();
+			entrySubmit(entrySelected);
 			break;
 		} case "Tab": {
 			break;
@@ -74,12 +91,17 @@ const popupPanelInsert = (container: HTMLElement) => {
 		event.preventDefault();
 	});
 	addEventListener("mousedown", event => {
+		if (!(actionselectPanel.querySelector(".list") as Element).contains(event.target as Element | null) ) {
+			return;
+		}
+		const entry = (event.target as Element).closest(".entry") as Element;
+		entrySubmit(entry);
 		event.preventDefault();
 	});
 	panel.appendChild(input);
 	panel.appendChild(list);
 	input.focus();
-	const loading = popupEntryCreate("Awaiting API…");
+	const loading = entryCreate("Awaiting API…");
 	list.appendChild(loading);
 	chrome.runtime.sendMessage({ type: "query" }, (apiQuery: APIQuery) => {
 		if (!Object.keys(apiQuery).length) {
@@ -87,11 +109,12 @@ const popupPanelInsert = (container: HTMLElement) => {
 		}
 		list.replaceChildren();
 		getApiQueryKeys(apiQuery).forEach(key => {
-			list.appendChild(popupEntryCreate(key));
+			list.appendChild(entryCreate(key));
 		});
 		list.firstElementChild?.classList.add("selected");
 	});
+	return panel;
 };
 
-popupStyleInsert();
-popupPanelInsert(document.body);
+styleInsert();
+const actionselectPanel = panelInsert(document.body);
