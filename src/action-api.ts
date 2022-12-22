@@ -1,9 +1,13 @@
 type APIAction = {
+	name: string
+	nameShort?: string
 	actions: Record<string, APIAction>
 	call?: (command: string, ...args: Array<string>) => Promise<void>
 }
 
 type APIQuery = {
+	name: string
+	nameShort: string
 	actions: Record<string, APIQuery>
 	isInvocable?: boolean
 }
@@ -44,18 +48,25 @@ const getTabIndex = (index: number, shift: number, tabCount: number) =>
 ;
 
 const api: APIAction = {
+	name: "manage the browser",
 	actions: {
 		tabs: {
+			name: "manage tabs",
 			actions: {
 				create: {
+					name: "create tab",
+					nameShort: "new tab",
 					actions: {},
 					call: async () => {
 						await chrome.tabs.create({});
 					},
 				},
 				highlight: {
+					name: "highlight tabs",
 					actions: {
 						shift: {
+							name: "highlight a relative tab",
+							nameShort: "highlight tab",
 							actions: {},
 							call: async (command, shift) => {
 								const tabs = await getTabsInWindow();
@@ -92,8 +103,11 @@ const api: APIAction = {
 					},
 				},
 				activate: {
+					name: "activate tabs",
 					actions: {
 						shift: {
+							name: "activate a relative tab",
+							nameShort: "go to tab",
 							actions: {},
 							call: async (command, shift) => {
 								const tabs = await getTabsInWindow();
@@ -103,6 +117,7 @@ const api: APIAction = {
 							},
 						},
 						highlighted: {
+							name: "activate highlighted tab",
 							actions: {},
 							call: async () => {
 								const tab = (await chrome.tabs.query(this.browser
@@ -121,8 +136,11 @@ const api: APIAction = {
 			},
 		},
 		windows: {
+			name: "manage windows",
 			actions: {
 				create: {
+					name: "create window",
+					nameShort: "new window",
 					actions: {},
 					call: async () => {
 						await chrome.windows.create();
@@ -157,13 +175,17 @@ const call = (key: string, command: string, ...args: Array<string>) => {
 };
 
 const query = (apiAction: APIAction = api, apiQuery: APIQuery = {
+	name: api.name,
+	nameShort: api.nameShort ?? api.name,
 	actions: {},
 	isInvocable: false,
 }): APIQuery => {
 	Object.entries(apiAction.actions).forEach(([ key, action ]) => {
 		apiQuery.actions[key] = {
-			isInvocable: !!action.call,
+			name: action.name,
+			nameShort: action.nameShort ?? action.name,
 			actions: {},
+			isInvocable: !!action.call,
 		};
 		query(action, apiQuery.actions[key]);
 	});

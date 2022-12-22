@@ -1,3 +1,8 @@
+type FilterDetails = {
+	key: string
+	name: string
+}
+
 const styleInsert = () => {
 	const style = document.createElement("style");
 	style.textContent = `
@@ -22,19 +27,34 @@ const styleInsert = () => {
 	document.head.appendChild(style);
 };
 
-const getApiQueryKeys = (apiQuery: APIQuery, key = ""): Array<string> =>
-	Object.entries(apiQuery.actions).flatMap(([ keyLast, query ]) =>
+const getApiQueryKeys = (apiQueryAction: APIQuery, key = ""): Array<string> =>
+	Object.entries(apiQueryAction.actions).flatMap(([ keyLast, query ]) =>
 		(query.isInvocable ? [ `${key}${keyLast}` ] : []).concat(getApiQueryKeys(query, `${key}${keyLast}.`))
 	)
 ;
 
-const entryCreate = (key: string) => {
+const getApiQueryAction = (key: string, apiQueryAction: APIQuery): APIQuery | undefined =>
+	key.includes(".")
+		? getApiQueryAction(key.split(".").slice(1).join("."), apiQueryAction.actions[key.split(".")[0]])
+		: apiQueryAction.actions[key]
+;
+
+const toSentenceCase = (name: string) =>
+	name[0].toUpperCase() + name.slice(1)
+;
+
+const entryCreate = (key: string, apiQuery: APIQuery) => {
+	const apiQueryAction = getApiQueryAction(key, apiQuery);
 	const panel = document.createElement("div");
 	panel.classList.add("entry");
-	const label = document.createElement("div");
-	label.classList.add("label");
-	label.textContent = key;
-	panel.appendChild(label);
+	const labelName = document.createElement("div");
+	labelName.classList.add("label", "name");
+	labelName.textContent = apiQueryAction ? toSentenceCase(apiQueryAction.nameShort ?? apiQueryAction.name) : "error";
+	panel.appendChild(labelName);
+	const labelKey = document.createElement("div");
+	labelKey.classList.add("label", "key");
+	labelKey.textContent = key;
+	panel.appendChild(labelKey);
 	return panel;
 };
 
@@ -76,11 +96,14 @@ const listFilterEnd = () => {
 	});
 };
 
-const listFilter = (predicate: (key: string) => boolean) => {
+const listFilter = (predicate: (details: FilterDetails) => boolean) => {
 	listFilterStart();
 	const list = document.querySelector("#action-select-panel .list") as Element;
 	Array.from(list.querySelectorAll(".entry"))
-		.filter(entry => predicate((entry.querySelector(".label") as Element).textContent ?? ""))
+		.filter(entry => predicate({
+			key: (entry.querySelector(".label.key") as Element).textContent ?? "",
+			name: ((entry.querySelector(".label.name") as Element).textContent ?? "").toLowerCase(),
+		}))
 		.forEach(entry => {
 			entry.classList.add("filtered");
 		});
@@ -151,7 +174,9 @@ const panelInsert = (container: HTMLElement) => {
 			listFilterEnd();
 			return;
 		}
-		listFilter(key => inputText.split(" ").every(text => key.includes(text)));
+		listFilter(details =>
+			inputText.toLowerCase().split(" ").every(text => details.key.includes(text) || details.name.includes(text))
+		);
 	});
 	addEventListener("mousedown", event => {
 		if (!(document.querySelector("#action-select-panel .list") as Element).contains(event.target as Element | null) ) {
@@ -164,7 +189,7 @@ const panelInsert = (container: HTMLElement) => {
 	panel.appendChild(input);
 	panel.appendChild(list);
 	input.focus();
-	const loading = entryCreate("Awaiting API…");
+	const loading = document.createTextNode("Awaiting API…");//entryCreate("Awaiting API…");
 	list.appendChild(loading);
 	chrome.runtime.sendMessage({ type: "query" }, (apiQuery: APIQuery) => {
 		if (!Object.keys(apiQuery).length) {
@@ -172,7 +197,7 @@ const panelInsert = (container: HTMLElement) => {
 		}
 		list.replaceChildren();
 		getApiQueryKeys(apiQuery).forEach(key => {
-			list.appendChild(entryCreate(key));
+			list.appendChild(entryCreate(key, apiQuery));
 		});
 		listSelectNth(0);
 	});
