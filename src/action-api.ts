@@ -1,11 +1,11 @@
 type APIAction = {
-	call?: (command: string, ...args: Array<string>) => Promise<void>
 	actions: Record<string, APIAction>
+	call?: (command: string, ...args: Array<string>) => Promise<void>
 }
 
 type APIQuery = {
-	isInvocable?: boolean
 	actions: Record<string, APIQuery>
+	isInvocable?: boolean
 }
 
 const getTabsInWindow = () =>
@@ -47,61 +47,85 @@ const api: APIAction = {
 	actions: {
 		tabs: {
 			actions: {
+				create: {
+					actions: {},
+					call: async () => {
+						await chrome.tabs.create({});
+					},
+				},
 				highlight: {
 					actions: {
 						shift: {
+							actions: {},
 							call: async (command, shift) => {
 								const tabs = await getTabsInWindow();
 								const tabSelected = tabs.find(tab => !tab.active && tab.highlighted);
 								const tabActiveIndex = tabs.findIndex(tab => tab.active);
 								const tabIndex = getTabIndex(tabActiveIndex, evaluateExpression(shift, command.length), tabs.length);
 								if (this.browser) {
-									chrome.tabs.update(tabs[tabIndex].id as number, { highlighted: true, active: false });
+									const highlighting = chrome.tabs.update(tabs[tabIndex].id as number, { highlighted: true, active: false });
 									if (tabSelected) {
-										chrome.tabs.update(tabSelected.id as number, { highlighted: false });
+										await chrome.tabs.update(tabSelected.id as number, { highlighted: false });
 									}
+									await highlighting;
 								} else {
-									chrome.tabGroups.query({ title: "doExt" }).then(groups => {
+									const operations: Array<Promise<unknown>> = [];
+									operations.push(chrome.tabGroups.query({ title: "doExt" }).then(groups => {
 										groups.forEach(async ({ id: groupId }) => {
-											chrome.tabs.ungroup((await chrome.tabs.query({ groupId })).map(tab => tab.id as number));
+											operations.push(chrome.tabs.ungroup(
+												(await chrome.tabs.query({ groupId })).map(tab => tab.id as number)
+											));
 										});
-									});
-									chrome.tabs.group({ tabIds: tabs[tabIndex].id as number }).then(async value => {
-										chrome.tabGroups.update(value, {
+									}));
+									await chrome.tabs.group({ tabIds: tabs[tabIndex].id as number }).then(async value => {
+										operations.push(chrome.tabGroups.update(value, {
 											title: "doExt",
 											color: "blue",
-										});
+										}));
 									});
+									for (const operation of operations) {
+										await operation;
+									}
 								}
 							},
-							actions: {},
 						},
 					},
 				},
 				activate: {
 					actions: {
 						shift: {
+							actions: {},
 							call: async (command, shift) => {
 								const tabs = await getTabsInWindow();
 								const tabActiveIndex = tabs.findIndex(tab => tab.active);
 								const tabIndex = getTabIndex(tabActiveIndex, evaluateExpression(shift, command.length), tabs.length);
-								chrome.tabs.update(tabs[tabIndex].id as number, { active: true });
+								await chrome.tabs.update(tabs[tabIndex].id as number, { active: true });
 							},
-							actions: {},
 						},
 						highlighted: {
+							actions: {},
 							call: async () => {
 								const tab = (await chrome.tabs.query(this.browser
 									? { highlighted: true, active: false }
 									: { groupId: (await chrome.tabGroups.query({ title: "doExt" }))[0].id }
 								))[0];
-								chrome.tabs.update(tab.id as number, { active: true });
+								const activating = chrome.tabs.update(tab.id as number, { active: true });
 								if (!this.browser) {
-									chrome.tabs.ungroup(tab.id as number);
+									await chrome.tabs.ungroup(tab.id as number);
 								}
+								await activating;
 							},
-							actions: {},
 						},
+					},
+				},
+			},
+		},
+		windows: {
+			actions: {
+				create: {
+					actions: {},
+					call: async () => {
+						await chrome.windows.create();
 					},
 				},
 			},
@@ -133,8 +157,8 @@ const call = (key: string, command: string, ...args: Array<string>) => {
 };
 
 const query = (apiAction: APIAction = api, apiQuery: APIQuery = {
-	isInvocable: false,
 	actions: {},
+	isInvocable: false,
 }): APIQuery => {
 	Object.entries(apiAction.actions).forEach(([ key, action ]) => {
 		apiQuery.actions[key] = {
