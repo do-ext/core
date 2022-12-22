@@ -52,6 +52,20 @@ const popupPanelInsert = (container: HTMLElement) => {
 			const childSelectedNewIdx = (list.childElementCount + childSelectedIdx + (event.key === "ArrowDown" ? 1 : -1)) % list.childElementCount;
 			(list.children.item(childSelectedNewIdx) as Element).classList.add("selected");
 			break;
+		} case "Enter": {
+			const childSelected = Array.from(list.children).find(child => child.classList.contains("selected"));
+			if (!childSelected) {
+				break;
+			}
+			const key = (childSelected.querySelector(".label") as Element).textContent ?? "";
+			chrome.runtime.sendMessage({
+				type: "invocation",
+				command: "",
+				key,
+				args: [],
+			});
+			close();
+			break;
 		} case "Tab": {
 			break;
 		} default: {

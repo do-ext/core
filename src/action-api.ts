@@ -91,8 +91,10 @@ const api: APIAction = {
 						},
 						highlighted: {
 							call: async () => {
-								const groupId = (await chrome.tabGroups.query({ title: "doExt" }))[0].id;
-								const tab = (await chrome.tabs.query(this.browser ? { highlighted: true, active: false } : { groupId }))[0];
+								const tab = (await chrome.tabs.query(this.browser
+									? { highlighted: true, active: false }
+									: { groupId: (await chrome.tabGroups.query({ title: "doExt" }))[0].id }
+								))[0];
 								chrome.tabs.update(tab.id as number, { active: true });
 								if (!this.browser) {
 									chrome.tabs.ungroup(tab.id as number);
@@ -115,10 +117,10 @@ const getKeyTail = (key: string) =>
 	key.split(".").slice(1).join(".")
 ;
 
-const getApiAction = (key: string, apiAction: APIAction = api): APIAction | null =>
+const getApiAction = (key: string, apiAction: APIAction = api): APIAction | undefined =>
 	key.includes(".")
-		? apiAction.actions ? getApiAction(getKeyTail(key), apiAction.actions[getKeyHead(key)]) : null
-		: apiAction
+		? getApiAction(getKeyTail(key), apiAction.actions[getKeyHead(key)])
+		: apiAction.actions[key]
 ;
 
 const call = (key: string, command: string, ...args: Array<string>) => {
@@ -147,7 +149,7 @@ const query = (apiAction: APIAction = api, apiQuery: APIQuery = {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	switch (message.type) {
 	case "invocation": {
-		call(message.command, message.key, message.args);
+		call(message.key, message.command, message.args);
 		break;
 	} case "query": {
 		sendResponse(query());
