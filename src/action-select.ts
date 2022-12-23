@@ -3,7 +3,8 @@ type FilterDetails = {
 	name: string
 }
 
-const styleInsert = () => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const styleCreate = (): HTMLStyleElement => {
 	const style = document.createElement("style");
 	style.textContent = `
 #action-select-panel {
@@ -24,7 +25,7 @@ const styleInsert = () => {
 	display: none;
 }
 	`;
-	document.head.appendChild(style);
+	return style;
 };
 
 const getApiQueryKeys = (apiQueryAction: APIQuery, key = ""): Array<string> =>
@@ -174,10 +175,10 @@ const listGetEntryIndex = (criteria: {
 	return entry ? entries.indexOf(entry) : -1;
 };
 
-const panelInsert = (container: HTMLElement) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const panelCreate = (): HTMLElement => {
 	const panel = document.createElement("div");
 	panel.id = "action-select-panel";
-	container.appendChild(panel);
 	const list = document.createElement("div");
 	list.classList.add("list");
 	const input = document.createElement("input");
@@ -209,6 +210,7 @@ const panelInsert = (container: HTMLElement) => {
 		const inputText = input.value;
 		if (!inputText.length) {
 			listFilterEnd();
+			listSelectNth(0);
 			return;
 		}
 		listFilter(details =>
@@ -240,6 +242,3 @@ const panelInsert = (container: HTMLElement) => {
 	});
 	return panel;
 };
-
-styleInsert();
-panelInsert(document.body);

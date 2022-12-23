@@ -168,6 +168,7 @@ const getApiAction = (key: string, apiAction: APIAction = api): APIAction | unde
 		: apiAction.actions[key]
 ;
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const call = (key: string, args: Record<string, string>, command: string) => {
 	const apiAction = getApiAction(key);
 	if (!apiAction || !apiAction.call) {
@@ -177,6 +178,7 @@ const call = (key: string, args: Record<string, string>, command: string) => {
 	apiAction.call(args, command);
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const query = (apiAction: APIAction = api, apiQuery: APIQuery = {
 	name: api.name,
 	nameShort: api.nameShort ?? api.name,
@@ -194,24 +196,3 @@ const query = (apiAction: APIAction = api, apiQuery: APIQuery = {
 	});
 	return apiQuery;
 };
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-	switch (message.type) {
-	case "invocation": {
-		const action = getApiAction(message.key);
-		if (action && action.params && !Object.keys(action.params).every(param => message.args[param])) {
-			sendResponse({
-				context: {
-					paramInfo: Object.entries(action.params).find(([ param ]) => !message.args[param]),
-				},
-			});
-			return;
-		}
-		call(message.key, message.args, message.command);
-		sendResponse({});
-		break;
-	} case "query": {
-		sendResponse(query());
-		break;
-	}}
-});
