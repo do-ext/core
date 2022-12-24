@@ -93,7 +93,6 @@ const entrySubmit = (entry?: Element) => {
 	}
 	chrome.runtime.sendMessage({
 		type: "invocation",
-		command: "",
 		key,
 		args: entrySubmitContextArgs,
 	}, response => {
