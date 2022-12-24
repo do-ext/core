@@ -109,7 +109,7 @@ const entrySubmit = (entry?: Element) => {
 				list.appendChild(entryCreate("", i.toString()));
 			});
 		}
-		const input = document.querySelector("#action-select-panel input") as HTMLInputElement;
+		const input = document.querySelector("#action-select-panel .input") as HTMLInputElement;
 		input.value = "";
 		listFilterEnd();
 		listSelectNth(0);
@@ -161,7 +161,10 @@ const listEntriesDeselect = () =>
 const listSelectNth = (index: number) => {
 	listEntriesDeselect();
 	const entries = listGetEntriesFiltered();
-	const entry = entries[(entries.length + index) % entries.length] as Element;
+	if (!entries.length) {
+		return;
+	}
+	const entry = entries[(entries.length + index) % entries.length];
 	entry.classList.add("selected");
 };
 
@@ -176,13 +179,16 @@ const listGetEntryIndex = (criteria: {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const panelCreate = (): HTMLElement => {
+const panelInsert = (container: Element): HTMLElement => {
 	const panel = document.createElement("div");
 	panel.id = "action-select-panel";
+	container.appendChild(panel);
 	const list = document.createElement("div");
 	list.classList.add("list");
-	const input = document.createElement("input");
-	input.type = "text";
+	const input = document.createElement("div");
+	input.classList.add("input");
+	input.contentEditable = "true";
+	input.spellcheck = false;
 	input.addEventListener("keydown", event => {
 		switch (event.key) {
 		case "ArrowDown":
@@ -207,7 +213,7 @@ const panelCreate = (): HTMLElement => {
 		event.preventDefault();
 	});
 	input.addEventListener("input", () => {
-		const inputText = input.value;
+		const inputText = input.textContent ?? "";
 		if (!inputText.length) {
 			listFilterEnd();
 			listSelectNth(0);

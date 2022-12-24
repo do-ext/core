@@ -19,7 +19,7 @@ const getTabsInWindow = () =>
 
 const evaluateExpression = (expressionString: string, commandLength: number): number => {
 	const expression = expressionString.split(" ").map(node =>
-		node === "<length>"
+		node === "{length}"
 			? commandLength
 			: [ "+", "-" ].includes(node) ? node : parseInt(node)
 	);
