@@ -6,7 +6,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	switch (message.type) {
 	case "invocation": {
 		const action = getApiAction(message.key);
-		if (action && action.params && !Object.keys(action.params).every(param => message.args[param])) {
+		if (action && action.params && Object.keys(action.params).some(param => !message.args[param])) {
 			sendResponse({
 				context: {
 					paramInfo: Object.entries(action.params).find(([ param ]) => !message.args[param]),
@@ -14,7 +14,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 			});
 			return;
 		}
-		call(message.key, message.args, message.command);
+		call(message.key, message.args);
 		sendResponse({});
 		break;
 	} case "query": {

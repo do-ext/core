@@ -3,7 +3,7 @@ type APIAction = {
 	nameShort?: string
 	actions: Record<string, APIAction>
 	params?: Record<string, string>
-	call?: (args: Record<string, string>, command: string) => Promise<void>
+	call?: (args: Record<string, string>) => Promise<void>
 }
 
 type APIQuery = {
@@ -16,31 +16,6 @@ type APIQuery = {
 const getTabsInWindow = () =>
 	chrome.tabs.query({ lastFocusedWindow: true })
 ;
-
-const evaluateExpression = (expressionString: string, commandLength: number): number => {
-	const expression = expressionString.split(" ").map(node =>
-		node === "{length}"
-			? commandLength
-			: [ "+", "-" ].includes(node) ? node : parseInt(node)
-	);
-	let result = 0;
-	let mode = "+";
-	expression.forEach(node => {
-		if (typeof node === "string") {
-			mode = node;
-		} else {
-			switch (mode) {
-			case "+": {
-				result += node;
-				break;
-			} case "-": {
-				result -= node;
-				break;
-			}}
-		}
-	});
-	return result;
-};
 
 const getTabIndex = (index: number, shift: number, tabCount: number) =>
 	shift >= 0
@@ -70,11 +45,11 @@ const api: APIAction = {
 							nameShort: "highlight tab",
 							actions: {},
 							params: { shift: "number" },
-							call: async (args, command) => {
+							call: async args => {
 								const tabs = await getTabsInWindow();
 								const tabSelected = tabs.find(tab => !tab.active && tab.highlighted);
 								const tabActiveIndex = tabs.findIndex(tab => tab.active);
-								const tabIndex = getTabIndex(tabActiveIndex, evaluateExpression(args.shift, command.length), tabs.length);
+								const tabIndex = getTabIndex(tabActiveIndex, parseInt(args.shift), tabs.length);
 								if (this.browser) {
 									const highlighting = chrome.tabs.update(tabs[tabIndex].id as number, { highlighted: true, active: false });
 									if (tabSelected) {
@@ -112,10 +87,10 @@ const api: APIAction = {
 							nameShort: "go to tab",
 							actions: {},
 							params: { shift: "number" },
-							call: async (args, command) => {
+							call: async args => {
 								const tabs = await getTabsInWindow();
 								const tabActiveIndex = tabs.findIndex(tab => tab.active);
-								const tabIndex = getTabIndex(tabActiveIndex, evaluateExpression(args.shift, command.length), tabs.length);
+								const tabIndex = getTabIndex(tabActiveIndex, parseInt(args.shift), tabs.length);
 								await chrome.tabs.update(tabs[tabIndex].id as number, { active: true });
 							},
 						},
@@ -169,13 +144,13 @@ const getApiAction = (key: string, apiAction: APIAction = api): APIAction | unde
 ;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const call = (key: string, args: Record<string, string>, command: string) => {
+const call = (key: string, args: Record<string, string>) => {
 	const apiAction = getApiAction(key);
 	if (!apiAction || !apiAction.call) {
-		console.warn(command, apiAction);
+		console.warn(`API Action not found for key ${key}.`);
 		return;
 	}
-	apiAction.call(args, command);
+	apiAction.call(args);
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
