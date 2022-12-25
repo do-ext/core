@@ -62,15 +62,22 @@ const entryCreate = (key: string, text: string, apiQuery?: APIQuery) => {
 };
 
 const entrySelect = (entry: Element) => {
-	document.querySelectorAll("#action-select-panel .entry.selected").forEach(entry => {
-		entry.classList.remove("selected");
-	});
+	listEntriesDeselect();
 	entry.classList.add("selected");
+	entry.scrollIntoView({
+		block: "center",
+	});
 };
 
-let entrySubmitContextArgs: Record<string, string> = {};
-let entrySubmitContextParam = "";
-let entrySubmitContextKey = "";
+const entrySubmitContext: {
+	args: Record<string, APIArgument>
+	param: string
+	key: string
+} = {
+	args: {},
+	param: "",
+	key: "",
+};
 
 const entrySubmit = (entry?: Element) => {
 	if (entry) {
@@ -81,39 +88,46 @@ const entrySubmit = (entry?: Element) => {
 		return;
 	}
 	let key = (entry.querySelector(".label.key") as Element).textContent ?? "";
-	const name = (entry.querySelector(".label.name") as Element).textContent ?? "";
-	if (entrySubmitContextParam.length) {
-		key = entrySubmitContextKey;
-		entrySubmitContextArgs[entrySubmitContextParam] = name;
-		entrySubmitContextParam = "";
-		entrySubmitContextKey = "";
+	if (entrySubmitContext.param.length) {
+		key = entrySubmitContext.key;
+		entrySubmitContext.args[entrySubmitContext.param] = entry["apiArgument"];
+		entrySubmitContext.param = "";
+		entrySubmitContext.key = "";
 	} else {
-		entrySubmitContextArgs = {};
-		entrySubmitContextKey = key;
+		entrySubmitContext.args = {};
+		entrySubmitContext.key = key;
 	}
 	chrome.runtime.sendMessage({
 		type: "invocation",
 		key,
-		args: entrySubmitContextArgs,
-	}, response => {
-		if (!response.context) {
+		args: entrySubmitContext.args,
+	});
+	const listener = ({ type, argumentRequests: [ argumentRequest ] }: { type: string, argumentRequests: [ APIArgumentRequest ] }) => {
+		if (type !== "response") {
+			return;
+		}
+		chrome.runtime.onMessage.removeListener(listener);
+		if (!argumentRequest) {
 			close();
 			return;
 		}
-		const [ param, type ] = response.context.paramInfo as [ string, string ];
 		const list = document.querySelector("#action-select-panel .list") as Element;
 		list.replaceChildren();
-		if (type === "number") {
+		if (argumentRequest.info.type === "number") {
 			Array(32).fill(0).forEach((value, i) => {
-				list.appendChild(entryCreate("", i.toString()));
+				list.appendChild(entryCreate("", i.toString()))["apiArgument"] = i.toString();
 			});
 		}
+		(argumentRequest.info.presets ?? []).forEach(preset => {
+			list.appendChild(entryCreate("", preset.name.length ? preset.name : preset.id))["apiArgument"] = preset.id;
+		});
 		const input = document.querySelector("#action-select-panel .input") as HTMLInputElement;
 		input.value = "";
 		listFilterEnd();
 		listSelectNth(0);
-		entrySubmitContextParam = param;
-	});
+		entrySubmitContext.param = argumentRequest.param;
+	};
+	chrome.runtime.onMessage.addListener(listener);
 };
 
 const listFilterStart = () => {
@@ -164,7 +178,7 @@ const listSelectNth = (index: number) => {
 		return;
 	}
 	const entry = entries[(entries.length + index) % entries.length];
-	entry.classList.add("selected");
+	entrySelect(entry);
 };
 
 const listGetEntryIndex = (criteria: {
@@ -233,7 +247,7 @@ const panelInsert = (container: Element): HTMLElement => {
 	panel.appendChild(input);
 	panel.appendChild(list);
 	input.focus();
-	const loading = document.createTextNode("Awaiting API…");//entryCreate("Awaiting API…");
+	const loading = document.createTextNode("Awaiting API…");
 	list.appendChild(loading);
 	chrome.runtime.sendMessage({ type: "query" }, (apiQuery: APIQuery) => {
 		if (!Object.keys(apiQuery).length) {
