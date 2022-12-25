@@ -1,10 +1,10 @@
 const style = document.createElement("style");
 style.textContent = `
 #action-select-panel {
-	min-width: 280px;
-	max-height: 480px;
 	display: flex;
 	flex-direction: column;
+	min-width: 280px;
+	max-height: 480px;
 }
 #action-select-panel .input {
 	margin-bottom: 3px;
