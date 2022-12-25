@@ -2,20 +2,17 @@ if (!this.browser) {
 	this["importScripts"]("/dist/action-api.js");
 }
 
+const sendInvocationResponse = async message =>
+	chrome.runtime.sendMessage({
+		type: "response",
+		argumentRequests: await call(message.key, message.args),
+	})
+;
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 	switch (message.type) {
 	case "invocation": {
-		const action = getApiAction(message.key);
-		if (action && action.params && Object.keys(action.params).some(param => !message.args[param])) {
-			sendResponse({
-				context: {
-					paramInfo: Object.entries(action.params).find(([ param ]) => !message.args[param]),
-				},
-			});
-			return;
-		}
-		call(message.key, message.args);
-		sendResponse({});
+		sendInvocationResponse(message);
 		break;
 	} case "query": {
 		sendResponse(query());

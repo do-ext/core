@@ -4,7 +4,7 @@
 	"description": "Run common actions quickly",
 	"version": "0.0.0",
 
-	"browser_specific_settings": { "gecko": { "id": "core@ator-dev" } },
+	"browser_specific_settings": { "gecko": { "id": "core@do-ext" } },
 
 	"icons": {
 		"48": "/icons/core.svg",

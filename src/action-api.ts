@@ -1,17 +1,41 @@
 type APIAction = {
 	name: string
 	nameShort?: string
-	actions: Record<string, APIAction>
-	params?: Record<string, string>
+	params?: Array<APIParameter>
 	call?: (args: Record<string, string>) => Promise<void>
+	actions: Record<string, APIAction>
 }
 
 type APIQuery = {
 	name: string
 	nameShort: string
-	actions: Record<string, APIQuery>
 	isInvocable?: boolean
+	actions: Record<string, APIQuery>
 }
+
+type APIParameter = {
+	name: string
+	getArgRequestInfo: () => Promise<APIArgumentRequestInfo>
+}
+
+type APIArgument = {
+	id: string
+	name: string
+}
+
+type APIArgumentRequest = {
+	param: string
+	info: APIArgumentRequestInfo
+}
+
+type APIArgumentRequestInfo = {
+	type?: APIArgumentType
+	allowCustomInput?: true
+	range?: [ number, number ]
+	presets?: Array<APIArgument>
+}
+
+type APIArgumentType = "string" | "number"
 
 const getTabsInWindow = () =>
 	chrome.tabs.query({ lastFocusedWindow: true })
@@ -32,10 +56,10 @@ const api: APIAction = {
 				create: {
 					name: "create tab",
 					nameShort: "new tab",
-					actions: {},
 					call: async () => {
 						await chrome.tabs.create({});
 					},
+					actions: {},
 				},
 				highlight: {
 					name: "highlight tabs",
@@ -43,8 +67,12 @@ const api: APIAction = {
 						shift: {
 							name: "highlight a relative tab",
 							nameShort: "highlight tab",
-							actions: {},
-							params: { shift: "number" },
+							params: [
+								{ name: "shift", getArgRequestInfo: async () => ({
+									type: "number",
+									allowCustomInput: true,
+								}) },
+							],
 							call: async args => {
 								const tabs = await getTabsInWindow();
 								const tabSelected = tabs.find(tab => !tab.active && tab.highlighted);
@@ -76,27 +104,43 @@ const api: APIAction = {
 									}
 								}
 							},
+							actions: {},
 						},
 					},
 				},
 				activate: {
-					name: "activate tabs",
+					name: "activate a tab",
+					params: [
+						{ name: "tab", getArgRequestInfo: async () => ({
+							presets: (await chrome.tabs.query({ lastFocusedWindow: true })).map(tab => ({
+								id: (tab.id ?? -1).toString(),
+								name: tab.title ?? "",
+							})),
+						}) },
+					],
+					call: async args => {
+						await chrome.tabs.update(parseInt(args.tab), { active: true });
+					},
 					actions: {
 						shift: {
 							name: "activate a relative tab",
 							nameShort: "go to tab",
-							actions: {},
-							params: { shift: "number" },
+							params: [
+								{ name: "shift", getArgRequestInfo: async () => ({
+									type: "number",
+									allowCustomInput: true,
+								}) },
+							],
 							call: async args => {
 								const tabs = await getTabsInWindow();
 								const tabActiveIndex = tabs.findIndex(tab => tab.active);
 								const tabIndex = getTabIndex(tabActiveIndex, parseInt(args.shift), tabs.length);
 								await chrome.tabs.update(tabs[tabIndex].id as number, { active: true });
 							},
+							actions: {},
 						},
 						highlighted: {
 							name: "activate highlighted tab",
-							actions: {},
 							call: async () => {
 								const tab = (await chrome.tabs.query(this.browser
 									? { highlighted: true, active: false }
@@ -108,6 +152,7 @@ const api: APIAction = {
 								}
 								await activating;
 							},
+							actions: {},
 						},
 					},
 				},
@@ -119,10 +164,10 @@ const api: APIAction = {
 				create: {
 					name: "create window",
 					nameShort: "new window",
-					actions: {},
 					call: async () => {
 						await chrome.windows.create();
 					},
+					actions: {},
 				},
 			},
 		},
@@ -144,28 +189,40 @@ const getApiAction = (key: string, apiAction: APIAction = api): APIAction | unde
 ;
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const call = (key: string, args: Record<string, string>) => {
-	const apiAction = getApiAction(key);
-	if (!apiAction || !apiAction.call) {
+const call = async (key: string, args: Record<string, string>): Promise<Array<APIArgumentRequest>> => {
+	const action = getApiAction(key);
+	if (!action || !action.call) {
 		console.warn(`API Action not found for key ${key}.`);
-		return;
+		return [];
 	}
-	apiAction.call(args);
+	const paramsUnsatisfied = (action.params ?? []).filter(param => !args[param.name]);
+	if (paramsUnsatisfied.length) {
+		const argumentRequests: Array<APIArgumentRequest> = [];
+		for (const param of paramsUnsatisfied) {
+			argumentRequests.push({
+				param: param.name,
+				info: await param.getArgRequestInfo(),
+			});
+		}
+		return argumentRequests;
+	}
+	action.call(args);
+	return [];
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const query = (apiAction: APIAction = api, apiQuery: APIQuery = {
 	name: api.name,
 	nameShort: api.nameShort ?? api.name,
-	actions: {},
 	isInvocable: false,
+	actions: {},
 }): APIQuery => {
 	Object.entries(apiAction.actions).forEach(([ key, action ]) => {
 		apiQuery.actions[key] = {
 			name: action.name,
 			nameShort: action.nameShort ?? action.name,
-			actions: {},
 			isInvocable: !!action.call,
+			actions: {},
 		};
 		query(action, apiQuery.actions[key]);
 	});
