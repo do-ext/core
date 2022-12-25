@@ -110,21 +110,26 @@ const api: APIAction = {
 				},
 				activate: {
 					name: "activate a tab",
-					params: [
-						{ name: "tab", getArgRequestInfo: async () => ({
-							presets: (await chrome.tabs.query({ lastFocusedWindow: true })).map(tab => ({
-								id: (tab.id ?? -1).toString(),
-								name: tab.title ?? "",
-							})),
-						}) },
-					],
-					call: async args => {
-						await chrome.tabs.update(parseInt(args.tab), { active: true });
-					},
 					actions: {
+						id: {
+							name: "activate any tab",
+							nameShort: "go to tab",
+							params: [
+								{ name: "tab", getArgRequestInfo: async () => ({
+									presets: (await chrome.tabs.query({})).map(tab => ({
+										id: (tab.id ?? -1).toString(),
+										name: tab.title ?? "",
+									})),
+								}) },
+							],
+							call: async args => {
+								await chrome.tabs.update(parseInt(args.tab), { active: true });
+							},
+							actions: {},
+						},
 						shift: {
 							name: "activate a relative tab",
-							nameShort: "go to tab",
+							nameShort: "shift tab",
 							params: [
 								{ name: "shift", getArgRequestInfo: async () => ({
 									type: "number",
